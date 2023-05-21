@@ -24,6 +24,14 @@ func ParseHeader(buf *bytes.Buffer) q.DNSHeader {
 	return data
 }
 
+func ParseQuestion(buf *bytes.Buffer) q.DNSQuestion {
+	name := DecodeName(buf)
+	var data q.DNSQuestion
+	data.Name = name
+	binary.Read(buf, binary.BigEndian, &data)
+	return data
+}
+
 func DecodeName(buf *bytes.Buffer) []byte {
 	var name [][]byte
 	for {
@@ -74,7 +82,7 @@ func main() {
 	myBytes := Testresp()
 	buf := bytes.NewBuffer(myBytes)
 	findata := ParseHeader(buf)
-	domainName := DecodeName(buf)
-	fmt.Println(findata, domainName)
-	fmt.Printf("%s\n", domainName)
+	parserQuestion := ParseQuestion(buf)
+	fmt.Println(findata)
+	fmt.Println(parserQuestion)
 }
