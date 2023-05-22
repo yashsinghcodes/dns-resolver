@@ -16,9 +16,9 @@ type DNSHeader struct {
 }
 
 type DNSQuestion struct {
-	name   []byte
-	type_  uint16
-	class_ uint16
+	Name   []byte
+	Type_  uint16
+	Class_ uint16
 }
 
 func Header_to_bytes(header *DNSHeader) []byte {
@@ -45,12 +45,12 @@ func Header_to_bytes(header *DNSHeader) []byte {
 
 func QuestionToBytes(question *DNSQuestion) []byte {
 	typeBytes := make([]byte, 2)
-	binary.BigEndian.PutUint16(typeBytes, uint16(question.type_))
+	binary.BigEndian.PutUint16(typeBytes, uint16(question.Type_))
 
 	classBytes := make([]byte, 2)
-	binary.BigEndian.PutUint16(classBytes, uint16(question.class_))
+	binary.BigEndian.PutUint16(classBytes, uint16(question.Class_))
 
-	return append(question.name, append(typeBytes, classBytes...)...)
+	return append(question.Name, append(typeBytes, classBytes...)...)
 }
 
 func EncodeDNSName(domain string) []byte {
@@ -69,7 +69,7 @@ func Build_query(domain string, record_type uint16, type_a uint16, class_in uint
 	id := rand.Intn(65535)
 	recursion := 1 << 8
 	header := DNSHeader{Id: uint16(id), Flag: uint16(recursion), Num_questions: 1, Num_answers: 0, Num_additionals: 0, Num_authorities: 0}
-	question := DNSQuestion{name: name, type_: record_type, class_: class_in}
+	question := DNSQuestion{Name: name, Type_: record_type, Class_: class_in}
 	return append(Header_to_bytes(&header), QuestionToBytes(&question)...)
 }
 

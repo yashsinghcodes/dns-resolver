@@ -11,11 +11,11 @@ import (
 )
 
 type DNSRecord struct {
-	name   []byte
-	type_  int
-	class_ int
-	ttl_   int
-	data   []byte
+	Name   []byte
+	Type_  uint16
+	Class_ uint16
+	Ttl_   uint32
+	Data   []byte
 }
 
 func ParseHeader(buf *bytes.Buffer) q.DNSHeader {
@@ -28,27 +28,52 @@ func ParseQuestion(buf *bytes.Buffer) q.DNSQuestion {
 	name := DecodeName(buf)
 	var data q.DNSQuestion
 	data.Name = name
-	binary.Read(buf, binary.BigEndian, &data)
+	d := make([]byte, 4)
+	binary.Read(buf, binary.BigEndian, d)
+	data.Type_ = binary.BigEndian.Uint16(d[:2])
+	data.Class_ = binary.BigEndian.Uint16(d[2:])
 	return data
 }
 
 func DecodeName(buf *bytes.Buffer) []byte {
-	var name [][]byte
+	var parts [][]byte
 	for {
 		lengthByte := make([]byte, 1)
 		_, err := buf.Read(lengthByte)
 		if err != nil {
-			panic("An Error caused in reading")
+			fmt.Println(err)
 		}
-		length := int(lengthByte[0])
+		length := lengthByte[0]
 		if length == 0 {
 			break
 		}
-		part := make([]byte, length)
-		buf.Read(part)
-		name = append(name, part)
+		if length&0b1100_0000 != 0 {
+			part := DecodeCompressedName(length, buf)
+			parts = append(parts, part)
+			break
+		} else {
+			part := make([]byte, length)
+			buf.Read(part)
+			parts = append(parts, part)
+		}
 	}
-	return bytes.Join(name, []byte("."))
+	return bytes.Join(parts, []byte("."))
+}
+
+func ParseRecord(buf *bytes.Buffer) DNSRecord {
+	name := DecodeName(buf)
+	data := make([]byte, 10)
+	binary.Read(buf, binary.BigEndian, data)
+	var record DNSRecord
+	record.Name = name
+	record.Type_ = binary.BigEndian.Uint16(data[:2])
+	record.Class_ = binary.BigEndian.Uint16(data[2:4])
+	record.Ttl_ = binary.BigEndian.Uint32(data[4:8])
+	dataLen := binary.BigEndian.Uint16(data[8:10])
+	datar := make([]byte, dataLen)
+	binary.Read(buf, binary.BigEndian, datar)
+	record.Data = datar
+	return record
 }
 
 func Testresp() []byte {
@@ -83,6 +108,8 @@ func main() {
 	buf := bytes.NewBuffer(myBytes)
 	findata := ParseHeader(buf)
 	parserQuestion := ParseQuestion(buf)
+	parseRecord := ParseRecord(buf)
 	fmt.Println(findata)
 	fmt.Println(parserQuestion)
+	fmt.Println(parseRecord)
 }
