@@ -122,6 +122,11 @@ func ParsePacket(myBytes []byte) DNSPacket {
 		additionals[i] = ParseRecord(buf)
 	}
 
+	// For CNAME_TYPE
+	if answers[0].Type_ == 5 {
+		answers = []DNSRecord{answers[len(answers)-1]}
+	}
+
 	return DNSPacket{Header: header, Question: questions, Answer: answers, Authorities: authorities, Additionals: additionals}
 }
 
@@ -129,8 +134,8 @@ func ParseIP(ip []byte) string {
 	return strings.Replace(strings.Replace(strings.Replace(fmt.Sprint(ip), " ", ".", -1), "[", "", -1), "]", "", -1)
 }
 
-func Testresp() []byte {
-	queryy := q.Build_query("www.facebook.com", 1, 1, 1)
+func Testresp(query string) []byte {
+	queryy := q.Build_query(query, 1, 1)
 	addr, err := net.ResolveUDPAddr("udp", "8.8.8.8:53")
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "Error in connecting")
@@ -157,8 +162,7 @@ func Testresp() []byte {
 
 func main() {
 	// sample response for now
-	myBytes := Testresp()
+	myBytes := Testresp("www.metafilter.com")
 	packet := ParsePacket(myBytes)
-	fmt.Println(packet)
 	fmt.Println(ParseIP(packet.Answer[0].Data))
 }
