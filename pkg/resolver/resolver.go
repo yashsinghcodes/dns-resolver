@@ -35,8 +35,16 @@ func SendQuery(ipAddr string, domainName string, recordType uint16) p.DNSPacket 
 	return p.ParsePacket(res[:n])
 }
 
+func ip_string(dat []byte) string {
+	a := fmt.Sprintf("%s", dat)
+	return a
+}
+
+func ipToString(ip []byte) string {
+	return fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
+}
+
 func main() {
-	myBytes := p.Testresp("www.facebook.com")
-	packet := p.ParsePacket(myBytes)
-	fmt.Println(packet.Answer[0].Data)
+	m := SendQuery("216.239.32.10:53", "google.com", 1)
+	fmt.Println(p.ParseIP((m.Answer[0].Data)))
 }
