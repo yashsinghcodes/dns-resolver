@@ -1,13 +1,10 @@
-package main
+package parser
 
 import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
-	"net"
-	"os"
-	"strings"
 
 	q "github.com/yashsinghcodes/dns-resolver/pkg/query"
 )
@@ -49,10 +46,7 @@ func DecodeName(buf io.Reader) []byte {
 	var parts [][]byte
 	for {
 		lengthByte := make([]byte, 1)
-		_, err := buf.Read(lengthByte)
-		if err != nil {
-			fmt.Println(err)
-		}
+		_, _ = buf.Read(lengthByte)
 		length := lengthByte[0]
 		if length == 0 {
 			break
@@ -82,20 +76,25 @@ func DecodeCompressedName(len byte, buf io.Reader) []byte {
 	return result
 }
 
-func ParseRecord(buf io.Reader) DNSRecord {
-	name := DecodeName(buf)
+func ParseRecord(reader io.Reader) DNSRecord {
+	name := DecodeName(reader)
 	data := make([]byte, 10)
-	binary.Read(buf, binary.BigEndian, data)
-	var record DNSRecord
-	record.Name = name
-	record.Type_ = binary.BigEndian.Uint16(data[0:2])
-	record.Class_ = binary.BigEndian.Uint16(data[2:4])
-	record.Ttl_ = binary.BigEndian.Uint32(data[4:8])
-	dataLen := binary.BigEndian.Uint16(data[8:10])
+	binary.Read(reader, binary.BigEndian, data)
+	type_, class_, ttl, dataLen := binary.BigEndian.Uint16(data[0:2]), binary.BigEndian.Uint16(data[2:4]), binary.BigEndian.Uint32(data[4:8]), binary.BigEndian.Uint16(data[8:10])
+
 	datar := make([]byte, dataLen)
-	binary.Read(buf, binary.BigEndian, datar)
-	record.Data = datar
-	return record
+
+	if type_ == 1 {
+		binary.Read(reader, binary.BigEndian, datar)
+		datar = []byte(ParseIP(datar))
+	}
+	if type_ == 2 {
+		datar = DecodeName(reader)
+	} else {
+		binary.Read(reader, binary.BigEndian, datar)
+	}
+
+	return DNSRecord{Name: name, Type_: type_, Class_: class_, Ttl_: ttl, Data: datar}
 }
 
 func ParsePacket(myBytes []byte) DNSPacket {
@@ -109,9 +108,12 @@ func ParsePacket(myBytes []byte) DNSPacket {
 
 	answers := make([]DNSRecord, header.Num_answers)
 	for i := 0; i < int(header.Num_answers); i++ {
-		answers[i] = ParseRecord(buf)
+		a := ParseRecord(buf)
+		if a.Type_ == 1 { // Quick Fix for CNAME
+			answers = make([]DNSRecord, 1)
+			answers[0] = a
+		}
 	}
-
 	authorities := make([]DNSRecord, header.Num_authorities)
 	for i := 0; i < int(header.Num_authorities); i++ {
 		authorities[i] = ParseRecord(buf)
@@ -122,47 +124,13 @@ func ParsePacket(myBytes []byte) DNSPacket {
 		additionals[i] = ParseRecord(buf)
 	}
 
-	// For CNAME_TYPE
-	if answers[0].Type_ == 5 {
-		answers = []DNSRecord{answers[len(answers)-1]}
-	}
-
 	return DNSPacket{Header: header, Question: questions, Answer: answers, Authorities: authorities, Additionals: additionals}
 }
 
 func ParseIP(ip []byte) string {
-	return strings.Replace(strings.Replace(strings.Replace(fmt.Sprint(ip), " ", ".", -1), "[", "", -1), "]", "", -1)
-}
-
-func Testresp(query string) []byte {
-	queryy := q.Build_query(query, 1, 1)
-	addr, err := net.ResolveUDPAddr("udp", "8.8.8.8:53")
-	if err != nil {
-		fmt.Fprintf(os.Stdout, "Error in connecting")
-		return nil
+	if len(ip) == 4 {
+		return fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
+	} else {
+		return fmt.Sprintf("%s", ip)
 	}
-	conn, err := net.DialUDP("udp", nil, addr)
-	if err != nil {
-		fmt.Fprintf(os.Stdout, "Error in connecting")
-		return nil
-	}
-	_, err = conn.Write(queryy)
-	if err != nil {
-		fmt.Fprintf(os.Stdout, "Error in connecting")
-		return nil
-	}
-	res := make([]byte, 1024)
-	n, _, err := conn.ReadFromUDP(res)
-	if err != nil {
-		fmt.Fprintf(os.Stdout, "Error in connecting")
-		return nil
-	}
-	return res[:n]
-}
-
-func main() {
-	// sample response for now
-	myBytes := Testresp("www.metafilter.com")
-	packet := ParsePacket(myBytes)
-	fmt.Println(ParseIP(packet.Answer[0].Data))
 }
