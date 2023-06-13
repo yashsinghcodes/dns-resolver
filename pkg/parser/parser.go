@@ -90,7 +90,8 @@ func ParseRecord(reader io.Reader) DNSRecord {
 	}
 	if type_ == 2 {
 		datar = DecodeName(reader)
-	} else {
+	}
+	if type_ > 2 {
 		binary.Read(reader, binary.BigEndian, datar)
 	}
 
@@ -108,11 +109,7 @@ func ParsePacket(myBytes []byte) DNSPacket {
 
 	answers := make([]DNSRecord, header.Num_answers)
 	for i := 0; i < int(header.Num_answers); i++ {
-		a := ParseRecord(buf)
-		if a.Type_ == 1 { // Quick Fix for CNAME
-			answers = make([]DNSRecord, 1)
-			answers[0] = a
-		}
+		answers[i] = ParseRecord(buf)
 	}
 	authorities := make([]DNSRecord, header.Num_authorities)
 	for i := 0; i < int(header.Num_authorities); i++ {
@@ -130,7 +127,6 @@ func ParsePacket(myBytes []byte) DNSPacket {
 func ParseIP(ip []byte) string {
 	if len(ip) == 4 {
 		return fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
-	} else {
-		return fmt.Sprintf("%s", ip)
 	}
+	return fmt.Sprintf("%s", ip)
 }

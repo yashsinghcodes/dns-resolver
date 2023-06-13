@@ -11,7 +11,7 @@ import (
 
 func SendQuery(ipAddr string, domainName string, recordType uint16) p.DNSPacket {
 	queryy := q.Build_query(domainName, recordType, 1)
-	addr, err := net.ResolveUDPAddr("udp", ipAddr)
+	addr, err := net.ResolveUDPAddr("udp", ipAddr+":53")
 	if err != nil {
 		fmt.Fprintf(os.Stdout, "Error in connecting")
 		return p.DNSPacket{}
@@ -35,16 +35,49 @@ func SendQuery(ipAddr string, domainName string, recordType uint16) p.DNSPacket 
 	return p.ParsePacket(res[:n])
 }
 
-func ip_string(dat []byte) string {
-	a := fmt.Sprintf("%s", dat)
-	return a
+func GetAnswer(packet p.DNSPacket) []byte {
+	for _, v := range packet.Answer {
+		if v.Type_ == 1 {
+			return v.Data
+		}
+	}
+	return []byte{}
 }
 
-func ipToString(ip []byte) string {
-	return fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
+func GetNameServerIP(packet p.DNSPacket) []byte {
+	for _, v := range packet.Additionals {
+		if v.Type_ == 1 {
+			return (v.Data)
+		}
+	}
+	return []byte{}
 }
 
-func main() {
-	m := SendQuery("216.239.32.10:53", "google.com", 1)
-	fmt.Println(p.ParseIP((m.Answer[0].Data)))
+func GetNameServer(packet p.DNSPacket) string {
+	for _, v := range packet.Authorities {
+		if v.Type_ == 2 {
+			return string(v.Data)
+		}
+	}
+	return ""
+}
+
+func Resolve(name string, type_ uint16) []byte {
+	rootNameServer := "198.41.0.4"
+	for 1 == 1 {
+		res := SendQuery(rootNameServer, name, type_)
+		ip := GetAnswer(res)
+		if len(ip) != 0 {
+			return ip
+		}
+		nsIP := GetNameServerIP(res)
+		if string(nsIP) != "" {
+			rootNameServer = string(nsIP)
+		}
+		nsDomain := GetNameServer(res)
+		if string(nsIP) == "" {
+			rootNameServer = string(Resolve(nsDomain, 1))
+		}
+	}
+	return []byte{}
 }
