@@ -22,36 +22,16 @@ type DNSQuestion struct {
 }
 
 func Header_to_bytes(header *DNSHeader) []byte {
-	idBytes := make([]byte, 2)
-	binary.BigEndian.PutUint16(idBytes, uint16(header.Id))
-
-	flagBytes := make([]byte, 2)
-	binary.BigEndian.PutUint16(flagBytes, uint16(header.Flag))
-
-	num_questionsBytes := make([]byte, 2)
-	binary.BigEndian.PutUint16(num_questionsBytes, uint16(header.Num_questions))
-
-	num_answersBytes := make([]byte, 2)
-	binary.BigEndian.PutUint16(num_answersBytes, uint16(header.Num_answers))
-
-	num_autBytes := make([]byte, 2)
-	binary.BigEndian.PutUint16(num_autBytes, uint16(header.Num_authorities))
-
-	num_addBytes := make([]byte, 2)
-	binary.BigEndian.PutUint16(num_addBytes, uint16(header.Num_additionals))
-
-	return append(append(append(append(idBytes, flagBytes...), append(num_questionsBytes, num_answersBytes...)...), num_autBytes...), num_addBytes...)
-
-	// var data []byte
-	// data = append(data,
-	// 	byte(header.Id)>>8, byte(header.Id),
-	// 	byte(header.Flag)>>8, byte(header.Flag),
-	// 	byte(header.Num_questions)>>8, byte(header.Num_questions),
-	// 	byte(header.Num_answers)>>8, byte(header.Num_answers),
-	// 	byte(header.Num_authorities)>>8, byte(header.Num_authorities),
-	// 	byte(header.Num_additionals)>>8, byte(header.Num_additionals),
-	// )
-	// return data
+	var data []byte
+	data = append(data,
+		byte(header.Id)>>8, byte(header.Id),
+		byte(header.Flag)>>8, byte(header.Flag),
+		byte(header.Num_questions)>>8, byte(header.Num_questions),
+		byte(header.Num_answers)>>8, byte(header.Num_answers),
+		byte(header.Num_authorities)>>8, byte(header.Num_authorities),
+		byte(header.Num_additionals)>>8, byte(header.Num_additionals),
+	)
+	return data
 }
 
 func QuestionToBytes(question *DNSQuestion) []byte {
@@ -83,34 +63,3 @@ func Build_query(domain string, record_type uint16, class_in uint16) []byte {
 	question := DNSQuestion{Name: name, Type_: record_type, Class_: class_in}
 	return append(Header_to_bytes(&header), QuestionToBytes(&question)...)
 }
-
-// TEST FUNCTION
-
-// func main() {
-
-// 	// test query...
-
-// 	query := Build_query("www.example.com", 1, 1, 1)
-// 	addr, err := net.ResolveUDPAddr("udp", "8.8.8.8:53")
-// 	if err != nil {
-// 		fmt.Fprintf(os.Stdout, "Error in connecting")
-// 		return
-// 	}
-// 	conn, err := net.DialUDP("udp", nil, addr)
-// 	if err != nil {
-// 		fmt.Fprintf(os.Stdout, "Error in connecting")
-// 		return
-// 	}
-// 	_, err = conn.Write(query)
-// 	if err != nil {
-// 		fmt.Fprintf(os.Stdout, "Error in connecting")
-// 		return
-// 	}
-// 	res := make([]byte, 1024)
-// 	n, _, err := conn.ReadFromUDP(res)
-// 	if err != nil {
-// 		fmt.Fprintf(os.Stdout, "Error in connecting")
-// 		return
-// 	}
-// 	fmt.Println(res[:n])
-// }
